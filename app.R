@@ -3,6 +3,8 @@ library(quantmod)
 library(shiny)
 library(plotly)
 library(TTR)
+library(twitteR)
+library(tidytext)
 ui = fluidPage(
   headerPanel(title = "William's Alligator"),
   sidebarLayout(
@@ -17,13 +19,18 @@ ui = fluidPage(
       numericInput(inputId = 'nrsi', label = 'Enter the number of periods for RSI', min = 1, max = 50, value = 14),
       sliderInput(inputId = 'rsi_l', label ='Select RSI range (lower)', value = 25, min = 0, max = 100),
       sliderInput(inputId = 'rsi_h', label ='Select RSI range (upper)', value = 75, min = 0, max = 100),
-      checkboxInput(inputId = 'stock_table', value = TRUE, label = 'Show Stock Table')
+      checkboxInput(inputId = 'stock_table', value = TRUE, label = 'Show Stock Table'),
+      textInput(inputId = 'handle', label = 'Enter the Twitter Handle', value = '#elonmusk'
+      ),
+      numericInput(inputId = 'no', label = 'enter number of tweets to be analyzed', value = 25)
     ),mainPanel(
       plotlyOutput(outputId  = 'p1', width = 1400, height = 800),
       plotlyOutput(outputId = 'r1', width = 1290, height = 500),
       verbatimTextOutput(outputId = 't1'),
       verbatimTextOutput(outputId = 'rc'),
-      verbatimTextOutput(outputId = 'c1')
+      verbatimTextOutput(outputId = 'c1'),
+      verbatimTextOutput(outputId = 'sent1'),
+      verbatimTextOutput(outputId = 'final')
     )
   )
 )
@@ -98,7 +105,40 @@ server <- function(input, output){
     print('the stock is entering over-sold region. wait the stock is likely to bounce back.')
   }else{print('the stock is entering or entered over-bought region. However the trend of stock is irregular')} })
   
+  
+  consumer_key <- 'LL9nOfKsdDePHYxg4RNEYtUBG'
+  consumer_secret_key <- 'bBFzUnvrxfPZ81fkHLJ3KmeZk10Lun3SIZJJ2ul9HlsOL7RAAc'
+  access_token <- '1014832302172573696-QpvruIkqjpAKGb1OY2QmYhNSeg5qrR'
+  access_secret_token <- 'QPKzbqi4FsifgPuYvG5HEl8qGdMy8LLsL69iCTmT4s7bH'
+  twitteR::setup_twitter_oauth(consumer_key = consumer_key, consumer_secret = consumer_secret_key, access_token = access_token, access_secret = access_secret_token)
+  td = twitteR::searchTwitter(searchString = '#elonmusk')
+  tdf =   twitteR::twListToDF(td)
+  td_list =  data_frame(txt = list(tdf$text))
+  sample_sentiments =  data_frame(txt = tdf$text)
+  u1 =  unnest_tokens(tbl = sample_sentiments, output = sent, input = txt)
+  l1 =  get_sentiments(lexicon = 'afinn')
+  i1 =  inner_join(x = u1, y = l1, by = c('sent' = 'word'))
+  algo_4 = if(sum(i1$score) > 0){
+    paste('the sentiments are looking positive with a polaarity of', sum(i1$score))
+  }else{
+    paste('the sentiments are negative with a polarity of', sum(i1$score))
+  }
+  output$sent1 = renderPrint(algo_4)
+  
   output$c1 = renderPrint(algo_3())
+ 
+  algo_5 = reactive({  if(sum(i1$score) & algo_3 == 'strong BUY'){
+    paste('buy +ve sent')
+  }else if(sum(i1$score) & algo_3 == 'BUY'){
+    paste('buy +ve sent')
+  }else{
+    paste('sentiments or technical is negative')
+  } })
+
+
+
+output$final = renderPrint(algo_5())   
+
 }
 shinyApp(ui = ui, server = server)
   
